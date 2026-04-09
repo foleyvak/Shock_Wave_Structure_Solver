@@ -82,7 +82,7 @@ python solver.py
 
 If you use this code in your research, please cite the repository:
 
-Foley, V. (2026). *Shock-Wave_Structure_Solver* [Computer software]. GitHub. [https://github.com/foleyvak/Shock_Wave_Structure_Solver](https://github.com/foleyvak/Shock_Wave_Structure_Solver)
+Foley-Valledor, K. (2026). *Shock-Wave Structure Solver*. GitHub. [https://github.com/foleyvak/Shock_Wave_Structure_Solver](https://github.com/foleyvak/Shock_Wave_Structure_Solver)
 
 ---
 
