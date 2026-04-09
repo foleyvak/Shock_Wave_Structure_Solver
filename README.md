@@ -9,7 +9,7 @@ This repository contains a Python-based solver for **shock-wave structures in re
 * Loads CO₂ data from NIST `.txt` files (`data/` folder).
 * Calculates upstream and downstream properties using the **Rankine-Hugoniot relations**.
 * Uses **boundary value problem (BVP) solvers** to compute smooth shock profiles.
-* Supports plotting and saving results (velocity, temperature, pressure, density) in both **PNG** and **EPS** formats.
+* Supports plotting and saving results (velocity, temperature, pressure, density) in **PNG** format.
 * Saves processed data in **CSV** files for further analysis.
 
 ---
