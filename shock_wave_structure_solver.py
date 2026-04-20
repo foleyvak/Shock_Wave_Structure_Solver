@@ -252,16 +252,15 @@ S1 = solve_RH()
 
 
 # --- C. DERIVED UPSTREAM CONDITIONS ---
-u_us = CONST['u_us']                           # Velocity [m/s]
-rho_us = CONST['rho_us']                       # Density [kg/m3]
-P_us_star = P_us / P_us                         # Normalized Pressure at Upstream
-h_us_star = CONST['h_us'] / (CONST['u_us']**2)  # Normalized Enthalpy at Upstream
+u_us = CONST['u_us']                            # Velocity [m/s]
+rho_us = CONST['rho_us']                        # Density [kg/m3]
+h_us_star = CONST['h_us'] / (CONST['u_us']**2)  # Normalised Enthalpy at Upstream
 
 
 # --- D. UPSTREAM BOUNDARY CONDITIONS ---
-u_us_star = u_us/u_us            # Normalized Velocity at Upstream
-T_us_star = T_us/T_us            # Normalized Temperature at Upstream
-P_us_star = P_us/P_us            # Normalized Pressure at Upstream
+u_us_star = u_us/u_us            # Normalised Velocity at Upstream
+T_us_star = T_us/T_us            # Normalised Temperature at Upstream
+P_us_star = P_us/(rho_us*u_us*u_us)             # Normalised Pressure at Upstream
 
 
 # --- E. CALCULATED DOWNSTREAM CONDITIONS ---
@@ -271,9 +270,9 @@ P_ds = S1['P_ds'] * 1e5    # Pressure at Downstream [Pa]
 
 
 # --- F. Independent variables ---
-u_star = np.ones(num_points)*u_us_star  # Normalized Velocity [u/u0]
-T_star = np.ones(num_points)*T_us_star  # Normalized Temperature [T/T0]
-P_star = np.ones(num_points)*P_us_star  # Normalized Pressure [P/P0]
+u_star = np.ones(num_points)*u_us_star  # Normalised Velocity [u/u0]
+T_star = np.ones(num_points)*T_us_star  # Normalised Temperature [T/T0]
+P_star = np.ones(num_points)*P_us_star  # Normalised Pressure [P/P0]
 
 
 # =================================================================
@@ -296,6 +295,7 @@ def fun(x, Y, p):
     P_star = Y[2]
         
     correction = (1.0 + p[0])
+    correction_P = P_us_star * (1.0 + p[0])
 
     du_star_dxi = np.zeros(len(u_star))
     dT_star_dxi = np.zeros(len(T_star))
@@ -303,7 +303,7 @@ def fun(x, Y, p):
     dP_star_dxi = np.zeros(len(P_star))
 
     for i in range(len(P_star)):
-        P_val_bar = P_star[i] * P_us / 1e5  # Convert to bar
+        P_val_bar = P_star[i] * (rho_us*u_us*u_us) / 1e5  # Convert to bar
         T_val = T_star[i] * T_us
         u_val = u_star[i] * u_us
 
@@ -321,11 +321,11 @@ def fun(x, Y, p):
         drho_dT_SI, drho_dP_bar = get_nist_partials(T_clamp, P_clamp)
         drho_dP_SI = drho_dP_bar / 1e5
         
-        coeff_P = (drho_dP_SI * P_us / rho_us)
+        coeff_P = drho_dP_SI * u_us * u_us
         if abs(coeff_P) < 1e-12: coeff_P = 1e-12 # Prevent div by zero
 
-        du_star_dxi[i] = CONST['Re_us']/mu_star * ( (u_star[i]-correction) + P_us/(rho_us*u_us*u_us) * (P_star[i]-correction) )
-        dT_star_dxi[i] = ((CONST['Pe_us'] * CONST['Ec_us'])/kappa_star) * ( (h_star-h_us_star) -0.5*((u_star[i]-correction)**2) - ((u_star[i]*P_us)/(rho_us*u_us*u_us))*(P_star[i]-correction) ) 
+        du_star_dxi[i] = CONST['Re_us']/mu_star * ( (u_star[i]-correction) + (P_star[i]-correction_P) )
+        dT_star_dxi[i] = ((CONST['Pe_us'] * CONST['Ec_us'])/kappa_star) * ( (h_star-h_us_star) -0.5*((u_star[i]-correction)**2) - u_star[i]*(P_star[i]-correction_P) ) 
         
         # Protect against zero velocity for density equation
         u_safe = u_star[i] if abs(u_star[i]) > 1e-6 else 1e-6
@@ -345,7 +345,7 @@ def bc(Y_up, Y_down, p):
     
     res_u_down = Y_down[0] - (u_ds / u_us)
     res_T_down = Y_down[1] - (T_ds / T_us)
-    res_P_down = Y_down[2] - (P_ds / P_us)
+    res_P_down = Y_down[2] - (P_ds / (rho_us*u_us*u_us))
   
     return [res_T_up, res_P_up, res_T_down, res_P_down] 
 
@@ -356,7 +356,7 @@ Y_guess = np.zeros((3, xi.size))
 Amplitude = amplitude_input
 Y_guess[0] = u_us_star + (u_ds/u_us - u_us_star) * (np.tanh(xi/Amplitude) + 1)/2
 Y_guess[1] = T_us_star + (T_ds/T_us - T_us_star) * (np.tanh(xi/Amplitude) + 1)/2
-Y_guess[2] = P_us_star + (P_ds/P_us - P_us_star) * (np.tanh(xi/Amplitude) + 1)/2
+Y_guess[2] = P_us_star + (P_ds/(rho_us*u_us*u_us) - P_us_star) * (np.tanh(xi/Amplitude) + 1)/2
 
 
 # --- J. PLOT INITIAL GUESS ---
@@ -382,13 +382,13 @@ sol = solve_bvp(fun, bc, xi, Y_guess, p=[0.0], verbose=2, tol=tol_rel)
 
 
 # --- L. CALCULATE VARIABLES TO PLOT ---
-u_star_sol = sol.y[0]             # Normalized Velocity
-T_star_sol = sol.y[1]             # Normalized Temperature
-P_star_sol = sol.y[2]             # Normalized Pressure
+u_star_sol = sol.y[0]             # Normalised Velocity
+T_star_sol = sol.y[1]             # Normalised Temperature
+P_star_sol = sol.y[2]             # Normalised Pressure
 
 u = u_star_sol * u_us              # Velocity [m/s]
 T = T_star_sol * T_us              # Temperature [K]
-P_bar = P_star_sol * (P_us / 1e5)  # Pressure [bar]
+P_bar = P_star_sol * ((rho_us*u_us*u_us) / 1e5)  # Pressure [bar]
 rho = rho_us/u_star_sol            # Density [kg/m3]
 
 a_list = []
@@ -471,7 +471,7 @@ axs[1, 1].plot(sol.x, rho/rho_c, 'm-', lw=2)
 axs[1, 1].set_ylabel(r'$\rho/\rho_c$')
 for ax in axs.flat:
     if ax.axison:
-        ax.set_xlabel(r'$\xi^\star/\lambda_{us}$')
+        ax.set_xlabel(r'$\xi^\star$ ($x/\lambda_{us}$)')
         ax.grid(False)
         ax.legend(loc='best', fontsize=10, frameon=False)
 plt.tight_layout()
